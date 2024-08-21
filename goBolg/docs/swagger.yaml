@@ -1,0 +1,70 @@
+basePath: /api/v1
+definitions:
+  vo.Result:
+    properties:
+      code:
+        description: 返回码
+        type: integer
+      data:
+        description: 返回数据，支持任意类型
+      flag:
+        description: 返回状态，true 表示成功，false 表示失败
+        type: boolean
+      message:
+        description: 返回信息
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: This is a sample server Petstore server.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Swagger Example API
+  version: "1.0"
+paths:
+  /archives:
+    get:
+      consumes:
+      - application/json
+      description: Get all archives
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/vo.Result'
+      security:
+      - BearerAuth: []
+      summary: List archives
+      tags:
+      - articles
+  /articles:
+    get:
+      consumes:
+      - application/json
+      description: Get all articles
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/vo.Result'
+      security:
+      - BearerAuth: []
+      summary: List articles
+      tags:
+      - articles
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

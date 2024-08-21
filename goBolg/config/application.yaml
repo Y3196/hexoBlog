@@ -1,0 +1,50 @@
+database:
+  driver: mysql
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  password: #自己数据库密码
+  name: blog
+  charset: utf8mb4
+  parseTime: true
+  loc: Local
+  maxIdleConns: 5
+  maxOpenConns: 10
+  connMaxLifetime: 1800
+
+server:
+  port: 8080
+
+redis:
+  addr: 127.0.0.1:6379
+  password: #自己redis密码
+  db: 0
+
+rabbitmq:
+  host: localhost
+  port: 5672
+  username: guest
+  password: guest
+
+website:
+  url: http://你的主域名或ip
+# 其他配置...
+
+upload:
+  mode: oss
+  oss:
+    url:   # 外网访问域名
+    endpoint:       # 阿里云固定
+    accessKeyId:
+    accessKeySecret:
+    bucketName:               # 存储桶名称
+
+search:
+  mode: mysql
+
+email:
+  host: "smtp.qq.com"
+  port: 587
+  username:
+  password:
+  from: 
