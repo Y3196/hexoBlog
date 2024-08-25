@@ -3,7 +3,7 @@ database:
   host: 127.0.0.1
   port: 3306
   user: root
-  password: 123456
+  password: # 自己数据库的密码
   name: blog
   charset: utf8mb4
   parseTime: true
@@ -34,11 +34,11 @@ website:
 upload:
   mode: "oss"
   oss:
-    url: "http://blog-felix.oss-cn-beijing.aliyuncs.com/"
+    url: "#阿里云上传地址"
     endpoint: "oss-cn-beijing.aliyuncs.com"
-    accessKeyId: "LTAI5tHmZ47AR1CgaGR8fi4z"
-    accessKeySecret: "ulJIX3GYn9SjUrDc2g971DqJEI6L0q"
-    bucketName: "blog-felix"
+    accessKeyId: "#阿里云的KeyId"
+    accessKeySecret: "#阿里云的Secret"
+    bucketName: "阿里云存储桶名称"
 
 search:
   mode: mysql
@@ -46,6 +46,6 @@ search:
 email:
   host: "smtp.qq.com"
   port: 587
-  username: "793302276@qq.com"
-  password: "wwtenafqarhubdbb"
-  from: "793302276@qq.com"
+  username: "×××××××××@qq.com"
+  password: "#发送邮件的密码"
+  from: "×××××××××@qq.com"
