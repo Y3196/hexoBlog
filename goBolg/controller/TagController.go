@@ -1,9 +1,11 @@
 package controller
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"goBolg/service"
 	"goBolg/vo"
+	"log"
 	"net/http"
 )
 
@@ -67,10 +69,12 @@ func (c *TagController) DeleteTag(ctx *gin.Context) {
 	if err := ctx.ShouldBindJSON(&tagIdList); err != nil {
 		ctx.JSON(http.StatusBadRequest, vo.Result{
 			Code:    http.StatusBadRequest,
-			Message: err.Error(),
+			Message: fmt.Sprintf("Failed to bind JSON: %v", err),
 		})
 		return
 	}
+
+	log.Printf("Received tag ID list: %v", tagIdList) // Debug log to see received data
 
 	err := c.Service.DeleteTag(ctx.Request.Context(), tagIdList)
 	if err != nil {
@@ -107,7 +111,7 @@ func (c *TagController) SaveOrUpdateTag(ctx *gin.Context) {
 		return
 	}
 
-	err := c.Service.SaveOrUpdateTag(ctx.Request.Context(), tagVO)
+	tag, err := c.Service.SaveOrUpdateTag(ctx.Request.Context(), tagVO)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, vo.Result{
 			Code:    http.StatusBadRequest,
@@ -119,6 +123,8 @@ func (c *TagController) SaveOrUpdateTag(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, vo.Result{
 		Code:    http.StatusOK,
 		Message: "操作成功",
+		Data:    tag,  // 返回更新后的标签数据
+		Flag:    true, // 确保这个值为 true
 	})
 }
 

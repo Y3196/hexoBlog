@@ -4,6 +4,7 @@ import (
 	"context"
 	"goBolg/model"
 	"gorm.io/gorm"
+	"time"
 )
 
 // ArticleTagDao 文章标签 DAO 接口
@@ -18,6 +19,12 @@ type ArticleTagDao interface {
 	SaveBatch(articleTags []model.ArticleTag) error
 
 	CountByTagIds(ctx context.Context, tagIdList []int) (int64, error)
+
+	ExistsByArticleAndTag(ctx context.Context, articleId int, tagId int) (bool, error)
+
+	ListByArticleId(ctx context.Context, articleId int) ([]model.ArticleTag, error)
+
+	UpdateTimestamp(ctx context.Context, articleId int, tagId int, timestamp time.Time) error
 }
 
 type articleTagDao struct {
@@ -45,7 +52,6 @@ func (dao *articleTagDao) DeleteByArticleIds(ctx context.Context, articleIdList 
 
 // DeleteByArticleId 根据文章 ID 删除文章标签
 func (dao *articleTagDao) DeleteByArticleId(ctx context.Context, articleId int) error {
-	// 执行删除操作
 	result := dao.db.WithContext(ctx).Where("article_id = ?", articleId).Delete(&model.ArticleTag{})
 	if result.Error != nil {
 		return result.Error
@@ -81,4 +87,33 @@ func (dao *articleTagDao) CountByTagIds(ctx context.Context, tagIdList []int) (i
 // DeleteBatchIds 批量删除标签
 func (dao *tagDao) DeleteBatchIds(ctx context.Context, tagIdList []int) error {
 	return dao.db.WithContext(ctx).Where("id IN ?", tagIdList).Delete(&model.Tag{}).Error
+}
+func (dao *articleTagDao) ExistsByArticleAndTag(ctx context.Context, articleId int, tagId int) (bool, error) {
+	var count int64
+	sql := "SELECT COUNT(*) FROM tb_article_tag WHERE article_id = ? AND tag_id = ?"
+	err := dao.db.Raw(sql, articleId, tagId).Count(&count).Error
+
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (dao *articleTagDao) ListByArticleId(ctx context.Context, articleId int) ([]model.ArticleTag, error) {
+	var articleTags []model.ArticleTag
+	err := dao.db.WithContext(ctx).
+		Where("article_id = ?", articleId).
+		Find(&articleTags).Error
+	if err != nil {
+		return nil, err
+	}
+	return articleTags, nil
+}
+
+// UpdateTimestamp 更新现有的文章-标签关联的更新时间
+func (dao *articleTagDao) UpdateTimestamp(ctx context.Context, articleId int, tagId int, updateTime time.Time) error {
+	return dao.db.WithContext(ctx).
+		Model(&model.ArticleTag{}).
+		Where("article_id = ? AND tag_id = ?", articleId, tagId).
+		Update("updated_at", updateTime).Error
 }

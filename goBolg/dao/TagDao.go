@@ -34,6 +34,7 @@ type TagDao interface {
 	DeleteBatchIds(ctx context.Context, tagIdList []int) error
 
 	WithContext(ctx context.Context) *gorm.DB
+	UpdateTag(ctx context.Context, tag model.Tag) error
 }
 
 type tagDao struct {
@@ -56,8 +57,10 @@ func (dao *tagDao) GetTagByID(id uint) (*model.Tag, error) {
 	return &tag, nil
 }
 
-func (dao *tagDao) UpdateTag(tag *model.Tag) error {
-	return dao.db.Save(tag).Error
+func (dao *tagDao) UpdateTag(ctx context.Context, tag model.Tag) error {
+	return dao.db.WithContext(ctx).Model(&model.Tag{}).Where("id = ?", tag.ID).Updates(map[string]interface{}{
+		"update_time": tag.UpdateTime,
+	}).Error
 }
 
 func (dao *tagDao) DeleteTag(id uint) error {

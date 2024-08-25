@@ -3,7 +3,7 @@ database:
   host: 127.0.0.1
   port: 3306
   user: root
-  password: #自己数据库密码
+  password: 123456
   name: blog
   charset: utf8mb4
   parseTime: true
@@ -17,7 +17,7 @@ server:
 
 redis:
   addr: 127.0.0.1:6379
-  password: #自己redis密码
+  password: 123456
   db: 0
 
 rabbitmq:
@@ -30,14 +30,15 @@ website:
   url: http://你的主域名或ip
 # 其他配置...
 
+
 upload:
-  mode: oss
+  mode: "oss"
   oss:
-    url:   # 外网访问域名
-    endpoint:       # 阿里云固定
-    accessKeyId:
-    accessKeySecret:
-    bucketName:               # 存储桶名称
+    url: "http://blog-felix.oss-cn-beijing.aliyuncs.com/"
+    endpoint: "oss-cn-beijing.aliyuncs.com"
+    accessKeyId: "LTAI5tHmZ47AR1CgaGR8fi4z"
+    accessKeySecret: "ulJIX3GYn9SjUrDc2g971DqJEI6L0q"
+    bucketName: "blog-felix"
 
 search:
   mode: mysql
@@ -45,6 +46,6 @@ search:
 email:
   host: "smtp.qq.com"
   port: 587
-  username:
-  password:
-  from: 
+  username: "793302276@qq.com"
+  password: "wwtenafqarhubdbb"
+  from: "793302276@qq.com"

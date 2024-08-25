@@ -118,7 +118,6 @@ func (s *blogInfoServiceImpl) GetBlogHomeInfo(ctx context.Context) (dto.BlogHome
 }
 
 func (s *blogInfoServiceImpl) GetWebsiteConfig(ctx context.Context) (vo.WebsiteConfigVO, error) {
-	log.Println("获取网站配置")
 
 	var configVO vo.WebsiteConfigVO
 	var configStr string
@@ -137,7 +136,6 @@ func (s *blogInfoServiceImpl) GetWebsiteConfig(ctx context.Context) (vo.WebsiteC
 			// 将数据存入 Redis 以备后用
 			err = s.redisService.Set(ctx, constants.WebsiteConfig, configStr, time.Hour)
 			if err != nil {
-				log.Printf("存储数据到 Redis 失败: %v", err)
 				return configVO, err
 			}
 		} else {
@@ -148,20 +146,15 @@ func (s *blogInfoServiceImpl) GetWebsiteConfig(ctx context.Context) (vo.WebsiteC
 	// 尝试解码 JSON 字符串
 	decodedStr, err := utils.DecodeDoubleEscapedJSON(configStr)
 	if err != nil {
-		log.Printf("解码 JSON 失败: %v", err)
-		log.Printf("导致错误的 JSON 字符串: %s", configStr)
 		return configVO, err
 	}
 
 	// 将解码后的 JSON 字符串反序列化到 configVO
 	err = json.Unmarshal([]byte(decodedStr), &configVO)
 	if err != nil {
-		log.Printf("将 JSON 反序列化到 WebsiteConfigVO 失败: %v", err)
-		log.Printf("导致错误的解码后 JSON 字符串: %s", decodedStr)
 		return configVO, err
 	}
 
-	log.Printf("成功反序列化 WebsiteConfigVO: %+v", configVO)
 	return configVO, nil
 }
 
@@ -170,7 +163,7 @@ func (s *blogInfoServiceImpl) GetBlogBackInfo(ctx context.Context) (dto.BlogBack
 	startTime := endTime.AddDate(0, 0, -7)
 
 	// 获取 views count
-	viewsCountStr, err := s.redisService.Get(ctx, "BLOG_VIEWS_COUNT")
+	viewsCountStr, err := s.redisService.Get(ctx, constants.BlogViewsCount)
 	if err != nil && err != redis.Nil {
 		return dto.BlogBackInfoDTO{}, fmt.Errorf("error retrieving views count: %w", err)
 	}
@@ -222,7 +215,7 @@ func (s *blogInfoServiceImpl) GetBlogBackInfo(ctx context.Context) (dto.BlogBack
 	}
 
 	// 获取 top 5 articles from Redis
-	articleMap, err := s.redisService.ZRevRangeWithScore(ctx, "ARTICLE_VIEWS_COUNT", 0, 4)
+	articleMap, err := s.redisService.ZRevRangeWithScore(ctx, constants.ArticleViewsCount, 0, 4)
 	if err != nil {
 		return dto.BlogBackInfoDTO{}, fmt.Errorf("error retrieving top articles: %w", err)
 	}
@@ -283,7 +276,6 @@ func (s *blogInfoServiceImpl) listArticleRank(ctx context.Context, articleMap ma
 }
 
 func (s *blogInfoServiceImpl) UpdateWebsiteConfig(ctx context.Context, websiteConfigVO vo.WebsiteConfigVO) error {
-	log.Println("Updating website configuration")
 
 	// 序列化 websiteConfigVO 为 JSON
 	configJSON, err := json.Marshal(websiteConfigVO)
@@ -301,18 +293,17 @@ func (s *blogInfoServiceImpl) UpdateWebsiteConfig(ctx context.Context, websiteCo
 	// 更新数据库中的配置
 	err = s.websiteConfigDao.UpdateByID(ctx, s.db, websiteConfig)
 	if err != nil {
-		log.Printf("Error updating website configuration in database: %v", err)
+
 		return err
 	}
 
 	// 删除 Redis 缓存
 	_, err = s.redisService.Del(ctx, constants.WebsiteConfig)
 	if err != nil {
-		log.Printf("Error deleting website configuration from Redis: %v", err)
+
 		return err
 	}
 
-	log.Println("Website configuration updated successfully")
 	return nil
 }
 
@@ -349,7 +340,7 @@ func (s *blogInfoServiceImpl) Report(ctx context.Context, request *http.Request)
 	// 判断是否访问
 	isMember, err := s.redisService.SIsMember(ctx, "UNIQUE_VISITOR", md5)
 	if err != nil {
-		log.Printf("Error checking if member exists in Redis: %v", err)
+
 		return
 	}
 

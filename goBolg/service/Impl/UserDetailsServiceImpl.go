@@ -11,7 +11,6 @@ import (
 	"goBolg/model"
 	"goBolg/service"
 	"goBolg/utils"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -56,33 +55,26 @@ func (s *UserDetailsServiceImpl) LoadUserByUsername(r *http.Request, ctx context
 // LoadUserByID 根据用户ID加载用户信息
 func (s *UserDetailsServiceImpl) LoadUserByID(ctx context.Context, userID int) (*dto.UserDetailDTO, error) {
 	if ctx == nil {
-		log.Println("context is nil")
 		return nil, fmt.Errorf("context is nil")
 	}
 
 	if userID <= 0 {
-		log.Printf("Invalid userID: %d", userID)
 		return nil, exception.NewBizError(enums.VALID_ERROR.Code, "Invalid user ID")
 	}
 
-	log.Printf("Loading user with userID: %d", userID)
 	userAuth, err := s.userAuthDao.FindUserById(ctx, userID)
 	if err != nil {
-		log.Printf("Error finding user by ID: %v", err)
 		return nil, exception.NewBizError(enums.SYSTEM_ERROR.Code, err.Error())
 	}
 	if userAuth == nil {
-		log.Println("User does not exist")
 		return nil, exception.NewBizError(enums.USERNAME_NOT_EXIST.Code, "User does not exist")
 	}
 
 	userDetail, err := s.ConvertUserDetail(ctx, userAuth)
 	if err != nil {
-		log.Printf("Error converting user details: %v", err)
 		return nil, fmt.Errorf("failed to convert user detail: %w", err)
 	}
 
-	log.Printf("User details loaded: %+v", userDetail)
 	return userDetail, nil
 }
 
@@ -121,7 +113,6 @@ func (s *UserDetailsServiceImpl) ConvertUserDetail(ctx context.Context, user *mo
 	if err != nil {
 		return nil, exception.NewBizError(enums.SYSTEM_ERROR.Code, "获取讨论点赞数据失败")
 	}
-	log.Printf("Fetched talkLikeSet from Redis for user %d: %v", userInfo.ID, talkLikeSet)
 	talkLikes := make([]string, len(talkLikeSet))
 	copy(talkLikes, talkLikeSet)
 

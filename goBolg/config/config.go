@@ -78,7 +78,7 @@ type AppConfig struct {
 	Redis    RedisConfig    `yaml:"redis"`
 	RabbitMQ RabbitMQConfig `yaml:"rabbitmq"`
 	Website  WebsiteConfig  `yaml:"website"`
-	Upload   UploadConfig   `yaml:"upload"`
+	Upload   *UploadConfig  `yaml:"upload"`
 	Search   SearchConfig   `yaml:"search"`
 	Email    MailConfig     `yaml:"email"`
 }
@@ -97,8 +97,6 @@ func LoadConfig(filename string) (*AppConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode config file: %w", err)
 	}
-
-	fmt.Printf("Loaded config: %+v\n", config)
 
 	return &config, nil
 }

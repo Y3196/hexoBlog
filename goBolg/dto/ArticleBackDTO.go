@@ -13,7 +13,7 @@ type ArticleBackDTO struct {
 	LikeCount    int       `json:"likeCount"`
 	ViewsCount   int       `json:"viewsCount"`
 	CategoryName string    `json:"categoryName"`
-	TagDTOList   []TagDTO  `json:"tagDTOList"`
+	TagDTOList   []TagDTO  `json:"tagDTOList" gorm:"-"`
 	Type         int       `json:"type"`
 	IsTop        int       `json:"isTop"`
 	IsDelete     int       `json:"isDelete"`

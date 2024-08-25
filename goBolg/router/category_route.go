@@ -56,4 +56,22 @@ func SetupCategoryRoutes(router *gin.RouterGroup, controllers *app.Controllers, 
 	router.POST("/register", controllers.UserAuthController.Register)
 
 	router.PUT("/users/password", controllers.UserAuthController.UpdatePassword)
+
+	router.GET("/admin/articles/:articleId", controllers.ArticleController.GetArticleBackById)
+
+	router.POST("/admin/articles/images", controllers.ArticleController.SaveArticleImages)
+
+	router.POST("/admin/categories", controllers.CategoryController.SaveOrUpdateCategory)
+
+	router.GET("/admin/tags", controllers.TagController.ListTagBackDTO)
+
+	router.DELETE("/admin/tags", controllers.TagController.DeleteTag)
+
+	router.POST("/admin/tags", controllers.TagController.SaveOrUpdateTag)
+
+	router.GET("/admin/tags/search", controllers.TagController.ListTagsBySearch)
+
+	router.GET("/admin/categories", controllers.CategoryController.ListBackCategories)
+
+	router.GET("/admin/categories/search", controllers.CategoryController.ListCategoriesBySearch)
 }

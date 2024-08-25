@@ -165,14 +165,24 @@ func (dao *categoryDao) CountCategoriesWithCondition(ctx context.Context, condit
 func (dao *categoryDao) ListCategoriesBySearch(ctx context.Context, condition vo.ConditionVO) ([]dto.CategoryOptionDTO, error) {
 	var categories []dto.CategoryOptionDTO
 
+	// 初始化关键词，处理可能的 nil 值
+	var keywords string
+	if condition.Keywords != nil && *condition.Keywords != "" {
+		keywords = "%" + *condition.Keywords + "%"
+	} else {
+		keywords = "%" // 如果 keywords 为 nil 或者空字符串, 就匹配所有记录
+	}
+
+	// 查询构建
 	query := dao.db.Table("tb_category").
 		Select("id, category_name, create_time").
-		Where("category_name LIKE ?", "%"+*condition.Keywords+"%").
+		Where("category_name LIKE ?", keywords).
 		Order("id DESC")
 
 	// 添加调试日志
 	query = query.Debug()
 
+	// 执行查询
 	err := query.Scan(&categories).Error
 	if err != nil {
 		return nil, err

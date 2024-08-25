@@ -9,6 +9,7 @@ import (
 	"goBolg/utils"
 	"goBolg/vo"
 	"gorm.io/gorm"
+	"time"
 )
 
 type tagServiceImpl struct {
@@ -31,6 +32,17 @@ func (s *tagServiceImpl) ListTagsByNames(ctx context.Context, tagNameList []stri
 
 func (s *tagServiceImpl) SaveBatch(ctx context.Context, tags []model.Tag) error {
 	return s.tagDao.SaveBatch(ctx, tags)
+}
+
+// UpdateBatch 批量更新标签
+func (s *tagServiceImpl) UpdateBatch(ctx context.Context, tags []model.Tag) error {
+	for _, tag := range tags {
+		err := s.tagDao.UpdateTag(ctx, tag)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ListTags 查询标签列表
@@ -91,8 +103,10 @@ func (s *tagServiceImpl) DeleteTag(ctx context.Context, tagIdList []int) error {
 	return s.tagDao.DeleteBatchIds(ctx, tagIdList)
 }
 
-func (s *tagServiceImpl) SaveOrUpdateTag(ctx context.Context, tagVO vo.TagVO) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
+func (s *tagServiceImpl) SaveOrUpdateTag(ctx context.Context, tagVO vo.TagVO) (model.Tag, error) {
+	var tag model.Tag
+
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		// 查询标签名是否存在
 		var existTag model.Tag
 		err := tx.WithContext(ctx).Select("id").Where("tag_name = ?", tagVO.TagName).First(&existTag).Error
@@ -103,9 +117,22 @@ func (s *tagServiceImpl) SaveOrUpdateTag(ctx context.Context, tagVO vo.TagVO) er
 			return errors.New("标签名已存在")
 		}
 
-		tag := model.Tag{
+		tag = model.Tag{
 			ID:      tagVO.ID,
 			TagName: tagVO.TagName,
+		}
+
+		if tag.ID == 0 {
+			// 新建标签时，设置 create_time 为当前时间
+			tag.CreateTime = time.Now()
+		} else {
+			// 更新标签时，保留原有的 create_time，只更新 update_time
+			existingTag := model.Tag{}
+			if err := tx.WithContext(ctx).Where("id = ?", tag.ID).First(&existingTag).Error; err != nil {
+				return err
+			}
+			tag.CreateTime = existingTag.CreateTime
+			tag.UpdateTime = time.Now()
 		}
 
 		if err := tx.WithContext(ctx).Save(&tag).Error; err != nil {
@@ -114,6 +141,12 @@ func (s *tagServiceImpl) SaveOrUpdateTag(ctx context.Context, tagVO vo.TagVO) er
 
 		return nil
 	})
+
+	if err != nil {
+		return model.Tag{}, err
+	}
+
+	return tag, nil
 }
 
 func (s *tagServiceImpl) ListTagsBySearch(ctx context.Context, condition vo.ConditionVO) ([]dto.TagDTO, error) {

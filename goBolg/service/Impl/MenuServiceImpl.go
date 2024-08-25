@@ -3,6 +3,7 @@ package Impl
 import (
 	"context"
 	"errors"
+	"goBolg/constant"
 	"goBolg/dao"
 	"goBolg/dto"
 	"goBolg/model"
@@ -173,7 +174,6 @@ func (s *menuServiceImpl) ListMenuOptions(ctx context.Context) ([]dto.LabelOptio
 }
 
 // ListUserMenus 查询用户菜单列表
-// ListUserMenus 查询用户菜单列表
 func (s *menuServiceImpl) ListUserMenus(ctx context.Context, userID uint) ([]dto.UserMenuDTO, error) {
 	menuList, err := s.menuDao.ListMenusByUserInfoID(ctx, uint(userID))
 	if err != nil {
@@ -192,7 +192,7 @@ func (s *menuServiceImpl) convertUserMenuList(catalogList []model.Menu, children
 		utils.BeanCopyObject(item, &userMenuDTO)
 
 		if item.IsHidden != nil {
-			userMenuDTO.Hidden = *item.IsHidden == 1
+			userMenuDTO.Hidden = *item.IsHidden == constants.True
 		} else {
 			userMenuDTO.Hidden = false
 		}
@@ -203,7 +203,7 @@ func (s *menuServiceImpl) convertUserMenuList(catalogList []model.Menu, children
 			dto := dto.UserMenuDTO{}
 			utils.BeanCopyObject(menu, &dto)
 			if menu.IsHidden != nil {
-				dto.Hidden = *menu.IsHidden == 1
+				dto.Hidden = *menu.IsHidden == constants.True
 			} else {
 				dto.Hidden = false
 			}
@@ -212,7 +212,7 @@ func (s *menuServiceImpl) convertUserMenuList(catalogList []model.Menu, children
 
 		if len(list) == 0 {
 			userMenuDTO.Path = item.Path
-			userMenuDTO.Component = "COMPONENT"
+			userMenuDTO.Component = constants.Component
 			list = append(list, dto.UserMenuDTO{
 				Path:      "",
 				Name:      item.Name,

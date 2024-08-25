@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"goBolg/service"
 	"goBolg/vo"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 type UserAuthController struct {
@@ -60,4 +62,27 @@ func (controller *UserAuthController) UpdatePassword(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"flag": true, "message": "密码更新成功"})
+}
+
+func (controller *UserAuthController) ListUserAreas(c *gin.Context) {
+	var condition vo.ConditionVO
+
+	typeStr := c.Query("type")
+	if typeStr != "" {
+		typeInt, err := strconv.Atoi(typeStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"flag": false, "message": "Invalid type parameter"})
+			return
+		}
+		condition.Type = &typeInt
+	}
+
+	userAreas, err := controller.UserAuthService.ListUserAreas(context.Background(), condition)
+	if err != nil {
+		log.Printf("Error listing user areas: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"flag": false, "message": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"flag": true, "data": userAreas})
 }

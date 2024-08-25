@@ -93,19 +93,19 @@ func (s *ArticleServiceImpl) ListArticleBacks(ctx context.Context, condition vo.
 		return vo.NewPageResult([]dto.ArticleBackDTO{}, 0), err
 	}
 
-	// 查询后台文章
+	// 查询后台文章并预加载标签信息
 	articleBackDTOList, err := s.articleDao.ListArticleBacks(ctx, offset, limit, condition)
 	if err != nil {
 		return vo.NewPageResult([]dto.ArticleBackDTO{}, 0), err
 	}
 
 	// 查询文章点赞量和浏览量
-	viewsCountMap, err := s.redisService.ZAllScore(ctx, "ARTICLE_VIEWS_COUNT")
+	viewsCountMap, err := s.redisService.ZAllScore(ctx, constants.ArticleViewsCount)
 	if err != nil {
 		return vo.NewPageResult([]dto.ArticleBackDTO{}, 0), err
 	}
 
-	likeCountMap, err := s.redisService.HGetAll(ctx, "ARTICLE_LIKE_COUNT")
+	likeCountMap, err := s.redisService.HGetAll(ctx, constants.ArticleLikeCount)
 	if err != nil {
 		return vo.NewPageResult([]dto.ArticleBackDTO{}, 0), err
 	}
@@ -124,11 +124,15 @@ func (s *ArticleServiceImpl) ListArticleBacks(ctx context.Context, condition vo.
 
 		// 处理 likeCount
 		if likeCountStr, exists := likeCountMap[idStr]; exists {
-
 			if likeCountInt, err := strconv.Atoi(likeCountStr); err == nil {
 				item.LikeCount = likeCountInt
-
 			}
+		}
+
+		// 查询并填充标签信息
+		tags, err := s.articleDao.GetTagsByArticleID(ctx, item.ID)
+		if err == nil {
+			item.TagDTOList = tags
 		}
 	}
 
@@ -454,6 +458,7 @@ func (s *ArticleServiceImpl) SaveOrUpdateArticle(ctx context.Context, articleVO 
 	// 保存文章分类
 	category, err = s.saveArticleCategory(ctx, articleVO)
 	if err != nil {
+
 		return err
 	}
 
@@ -469,9 +474,9 @@ func (s *ArticleServiceImpl) SaveOrUpdateArticle(ctx context.Context, articleVO 
 		return errors.New("failed to get login user")
 	}
 
-	// 保存或更新文章
 	article := model.Article{}
 	utils.BeanCopy(&articleVO, &article)
+
 	if category != nil {
 		article.CategoryID = category.ID
 	}
@@ -485,13 +490,14 @@ func (s *ArticleServiceImpl) SaveOrUpdateArticle(ctx context.Context, articleVO 
 
 	article.UserID = user.UserInfoID
 
-	// 设置创建时间
-	if article.ID == 0 {
-		article.CreateTime = time.Now()
+	// 解引用 ArticleVO 中的 ID 并判断是否为 0
+	if articleVO.ID == nil || *articleVO.ID == 0 {
+		err = s.articleDao.SaveArticle(ctx, &article)
+	} else {
+		article.ID = *articleVO.ID // 将解引用后的 ID 赋值给 article.ID
+		err = s.articleDao.UpdateArticle(ctx, &article)
 	}
 
-	// 保存或更新文章
-	err = s.articleDao.SaveOrUpdate(ctx, &article)
 	if err != nil {
 		return err
 	}
@@ -507,59 +513,49 @@ func (s *ArticleServiceImpl) SaveOrUpdateArticle(ctx context.Context, articleVO 
 
 // SaveArticleTag 保存文章标签
 func (s *ArticleServiceImpl) saveArticleTag(ctx context.Context, articleVO vo.ArticleVO, articleId int) error {
-	// 编辑文章则删除文章所有标签
-	if articleVO.ID != nil {
-		err := s.articleTagDao.DeleteByArticleId(ctx, *articleVO.ID)
-		if err != nil {
-			return err
-		}
-	}
-
-	// 添加文章标签
 	tagNameList := articleVO.TagNameList
 	if len(tagNameList) > 0 {
-		// 查询已存在的标签
+		// 查询数据库中已存在的标签
 		existTagList, err := s.tagDao.ListTagsByNames(ctx, tagNameList)
 		if err != nil {
 			return err
 		}
-		existTagNameList := make(map[string]struct{})
-		existTagIdList := make([]int, len(existTagList))
-		for i, tag := range existTagList {
-			existTagNameList[tag.TagName] = struct{}{}
-			existTagIdList[i] = tag.ID
+
+		existTagNameMap := make(map[string]int)
+		for _, tag := range existTagList {
+			existTagNameMap[tag.TagName] = tag.ID
 		}
 
-		// 对比新增不存在的标签
-		var newTagList []model.Tag
-		for _, tagName := range tagNameList {
-			if _, exists := existTagNameList[tagName]; !exists {
-				newTagList = append(newTagList, model.Tag{TagName: tagName})
-			}
-		}
+		// 准备保存的新文章-标签关联关系
+		var newArticleTagList []model.ArticleTag
 
-		if len(newTagList) > 0 {
-			err := s.tagService.SaveBatch(ctx, newTagList)
+		for _, tagID := range existTagNameMap {
+			exists, err := s.articleTagDao.ExistsByArticleAndTag(ctx, articleId, tagID)
 			if err != nil {
 				return err
 			}
-			for _, tag := range newTagList {
-				existTagIdList = append(existTagIdList, tag.ID)
+
+			if exists {
+				err := s.articleTagDao.UpdateTimestamp(ctx, articleId, tagID, time.Now())
+				if err != nil {
+					return err
+				}
+			} else {
+
+				newArticleTagList = append(newArticleTagList, model.ArticleTag{
+					ArticleID: articleId,
+					TagID:     tagID,
+				})
 			}
 		}
 
-		// 提取标签ID绑定文章
-		var articleTagList []model.ArticleTag
-		for _, tagID := range existTagIdList {
-			articleTagList = append(articleTagList, model.ArticleTag{
-				ArticleID: articleId,
-				TagID:     tagID,
-			})
-		}
-
-		err = s.articleTagDao.SaveBatch(articleTagList)
-		if err != nil {
-			return err
+		// 保存新的文章-标签关联关系
+		if len(newArticleTagList) > 0 {
+			log.Printf("Saving new article-tag associations: %v", newArticleTagList)
+			err := s.articleTagDao.SaveBatch(newArticleTagList)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -640,7 +636,6 @@ func (s *ArticleServiceImpl) DeleteArticles(ctx context.Context, articleIdList [
 	// 启动事务
 	tx := s.db.Begin()
 	if tx.Error != nil {
-		log.Printf("启动事务失败: %v", tx.Error)
 		return fmt.Errorf("启动事务失败: %v", tx.Error)
 	}
 	log.Println("事务启动成功")

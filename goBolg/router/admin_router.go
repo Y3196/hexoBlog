@@ -11,19 +11,20 @@ func SetupAdminRoutes(router *gin.RouterGroup, app *app.Controllers, authMiddleW
 	{
 		// 文章
 		adminGroup.GET("/articles", app.ArticleController.ListArticleBacks)
-		adminGroup.GET("/articles/:articleId", app.ArticleController.GetArticleBackById)
+		//	adminGroup.GET("/articles/:articleId", app.ArticleController.GetArticleBackById)
 		adminGroup.POST("/articles", app.ArticleController.SaveOrUpdateArticle)
+		//	adminGroup.POST("/articles/images", app.ArticleController.SaveArticleImages)
 		adminGroup.PUT("/articles/top", app.ArticleController.UpdateArticleTop)
 		adminGroup.PUT("/articles", app.ArticleController.UpdateArticleDelete)
 		adminGroup.DELETE("/articles", app.ArticleController.DeleteArticles)
 		// 网站
-		adminGroup.GET("/", app.BlogInfoController.GetBlogBackInfo)
+		adminGroup.GET("", app.BlogInfoController.GetBlogBackInfo)
 		adminGroup.PUT("/website/config", app.BlogInfoController.UpdateWebsiteConfig)
 		adminGroup.PUT("/about", app.BlogInfoController.UpdateAbout)
 		// 分类
-		adminGroup.GET("/categories", app.CategoryController.ListBackCategories)
-		adminGroup.GET("/categories/search", app.CategoryController.ListCategoriesBySearch)
-		adminGroup.POST("/categories", app.CategoryController.SaveOrUpdateCategory)
+		//adminGroup.GET("/categories", app.CategoryController.ListBackCategories)
+		//adminGroup.GET("/categories/search", app.CategoryController.ListCategoriesBySearch)
+		//adminGroup.POST("/categories", app.CategoryController.SaveOrUpdateCategory)
 		adminGroup.DELETE("/categories", app.CategoryController.DeleteCategories)
 		//评论
 		adminGroup.PUT("/comments/review", app.CommentController.UpdateCommentsReview)
@@ -105,12 +106,15 @@ func SetupAdminRoutes(router *gin.RouterGroup, app *app.Controllers, authMiddleW
 		adminGroup.POST("/role", app.RoleController.SaveOrUpdateRole) // 更新不知道更新的是什么？？？？？并且创建会进行填充更新时间
 
 		//标签
-		adminGroup.GET("/tags", app.TagController.ListTagBackDTO)
-		adminGroup.DELETE("/tags", app.TagController.DeleteTag)
-		adminGroup.POST("/tags", app.TagController.SaveOrUpdateTag) // 更新不知道更新的是什么？？？？？并且创建会进行填充更新时间
-		adminGroup.GET("/tags/search", app.TagController.ListTagsBySearch)
+		//	adminGroup.GET("/tags", app.TagController.ListTagBackDTO)
+		//adminGroup.DELETE("/tags", app.TagController.DeleteTag)
+		//adminGroup.POST("/tags", app.TagController.SaveOrUpdateTag) // 更新不知道更新的是什么？？？？？并且创建会进行填充更新时间
+		//adminGroup.GET("/tags/search", app.TagController.ListTagsBySearch)
 
 		// 说说
 		adminGroup.POST("/talks/images", app.TalkController.SaveTalkImages)
+
+		//后台
+		adminGroup.GET("/users/area", app.UserAuthController.ListUserAreas)
 	}
 }

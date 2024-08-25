@@ -2,10 +2,13 @@ package Impl
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/go-redis/redis/v8"
 	"goBolg/constant"
 	"goBolg/dao"
+	"goBolg/dto"
 	"goBolg/enums"
 	"goBolg/model"
 	"goBolg/rabbitmq/rabbitService"
@@ -14,6 +17,7 @@ import (
 	"goBolg/vo"
 	"golang.org/x/crypto/bcrypt"
 	"log"
+	"strconv"
 	"time"
 )
 
@@ -168,4 +172,63 @@ func (s *userAuthServiceImpl) UpdatePassword(ctx context.Context, user *vo.UserV
 	}
 
 	return s.userAuthDao.UpdatePassword(ctx, user.Username, string(hashedPassword))
+}
+
+// ListUserAreas fetches the user area distribution based on the provided condition.
+func (s *userAuthServiceImpl) ListUserAreas(ctx context.Context, conditionVO vo.ConditionVO) ([]dto.UserAreaDTO, error) {
+	var userAreaDTOList []dto.UserAreaDTO
+
+	areaType := enums.GetUserAreaType(*conditionVO.Type)
+	if areaType == nil {
+		return userAreaDTOList, nil // or return an error if needed
+	}
+
+	switch *areaType {
+	case enums.USERTYPE:
+		// 查询注册用户区域分布
+		userArea, err := s.redisService.Get(ctx, constants.UserArea)
+		if err != nil && err != redis.Nil {
+			return nil, err
+		}
+		log.Printf("Raw data from Redis: %s", userArea)
+
+		if userArea != "" {
+			// 使用 DecodeDoubleEscapedJSON 处理双重转义的 JSON 字符串
+			decodedJSON, err := utils.DecodeDoubleEscapedJSON(userArea)
+			if err != nil {
+				log.Printf("Error decoding double escaped JSON: %v", err)
+				return nil, err
+			}
+
+			// 将解码后的字符串反序列化为结构体数组
+			err = json.Unmarshal([]byte(decodedJSON), &userAreaDTOList)
+			if err != nil {
+				log.Printf("Error unmarshaling JSON into struct: %v", err)
+				return nil, err
+			}
+		}
+
+	case enums.VISITOR:
+		// 查询游客区域分布
+		visitorArea, err := s.redisService.HGetAll(ctx, constants.VisitorArea)
+		if err != nil && err != redis.Nil {
+			return nil, err
+		}
+		if len(visitorArea) > 0 {
+			for name, value := range visitorArea {
+				val, err := strconv.ParseInt(value, 10, 64)
+				if err != nil {
+					return nil, err
+				}
+				userAreaDTOList = append(userAreaDTOList, dto.UserAreaDTO{
+					Name:  name,
+					Value: val,
+				})
+			}
+		}
+	default:
+		// 默认情况，返回空的 userAreaDTOList
+	}
+
+	return userAreaDTOList, nil
 }

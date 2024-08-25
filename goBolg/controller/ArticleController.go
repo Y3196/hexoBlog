@@ -2,7 +2,10 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
+	"goBolg/config"
+	"goBolg/enums"
 	"goBolg/service"
+	"goBolg/strategy/contxt"
 	"goBolg/vo"
 	"log"
 	"net/http"
@@ -11,7 +14,8 @@ import (
 
 // ArticleController 文章控制器
 type ArticleController struct {
-	Service service.ArticleService
+	Service               service.ArticleService
+	UploadStrategyContext *contxt.UploadStrategyContext
 	//SearchStrategyContext *context.SearchStrategyContext
 }
 
@@ -97,7 +101,6 @@ func (controller *ArticleController) ListArticleBacks(c *gin.Context) {
 	}
 
 	// 日志记录并返回结果
-	log.Printf("Controller: ListArticleBacks returned %d records", len(articlePageResult.RecordList))
 	c.JSON(http.StatusOK, vo.OkWithData(articlePageResult))
 }
 
@@ -379,4 +382,56 @@ func (controller *ArticleController) ListArticlesBySearch(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, vo.OkWithData(articles))
+}
+
+// SaveArticleImages handles the uploading of article images.
+// @Summary 上传文章图片
+// @Description 上传文章图片
+// @Tags Articles
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "文章图片"
+// @Success 200 {object} vo.Result "图片上传成功后的URL"
+// @Router /admin/articles/images [post]
+// SaveArticleImages handles image upload requests from the frontend
+func (ac *ArticleController) SaveArticleImages(c *gin.Context) {
+	// 检查 UploadStrategyContext 是否为 nil
+	if ac.UploadStrategyContext == nil {
+		log.Printf("UploadStrategyContext is nil, reinitializing...")
+
+		// 使用正确的配置文件路径
+		configPath := "./config/application.yaml" // 修改路径指向你的 application.yaml 文件
+		config, err := config.LoadConfig(configPath)
+		if err != nil {
+			log.Fatalf("Failed to load config from %s: %v", configPath, err)
+			c.JSON(http.StatusInternalServerError, vo.FailWithMessage("Server configuration error"))
+			return
+		}
+
+		ac.UploadStrategyContext, err = contxt.NewUploadStrategyContext(config)
+		if err != nil {
+			log.Fatalf("Failed to initialize UploadStrategyContext: %v", err)
+			c.JSON(http.StatusInternalServerError, vo.FailWithMessage("Server configuration error"))
+			return
+		}
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		log.Printf("Error retrieving file from form: %v", err)
+		c.JSON(http.StatusBadRequest, vo.FailWithMessage("Failed to get file"))
+		return
+	}
+
+	log.Printf("Received file: %s", fileHeader.Filename)
+
+	fileUrl, err := ac.UploadStrategyContext.ExecuteUploadStrategy(fileHeader, enums.Article)
+	if err != nil {
+		log.Printf("Recovered from panic in ExecuteUploadStrategy: %v", err)
+		c.JSON(http.StatusInternalServerError, vo.FailWithMessage("Failed to upload file"))
+		return
+	}
+
+	log.Printf("File uploaded successfully to: %s", fileUrl)
+	c.JSON(http.StatusOK, vo.OkWithData(fileUrl))
 }

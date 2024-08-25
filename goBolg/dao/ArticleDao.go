@@ -30,6 +30,8 @@ type ArticleDao interface {
 
 	ListArticleBacks(ctx context.Context, current, size int, condition vo.ConditionVO) ([]dto.ArticleBackDTO, error)
 
+	GetTagsByArticleID(ctx context.Context, articleID int) ([]dto.TagDTO, error)
+
 	CountArticleBacks(ctx context.Context, condition vo.ConditionVO) (int, error)
 
 	ListRecommendArticles(ctx context.Context, articleId int) ([]dto.ArticleRecommendDTO, error)
@@ -47,7 +49,9 @@ type ArticleDao interface {
 	// 根据条件查询文章
 	ListArticlesByCondition(ctx context.Context, current int, size int, condition vo.ConditionVO) ([]dto.ArticlePreviewDTO, error)
 
-	SaveOrUpdate(ctx context.Context, article *model.Article) error
+	SaveArticle(ctx context.Context, article *model.Article) error
+
+	UpdateArticle(ctx context.Context, article *model.Article) error
 
 	UpdateById(ctx context.Context, article *model.Article) error
 
@@ -143,7 +147,7 @@ func (dao *articleDao) ListArticles(offset int, size int) ([]dto.ArticleHomeDTO,
 		var tagNames string
 		if err := rows.Scan(&article.ID, &article.ArticleCover, &article.ArticleTitle, &article.ArticleContent, &article.CreateTime, &article.Type,
 			&article.IsTop, &article.CategoryID, &article.CategoryName, &tagIDs, &tagNames); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to scan row: %v", err)
 		}
 
 		// Parse tags
@@ -154,7 +158,7 @@ func (dao *articleDao) ListArticles(offset int, size int) ([]dto.ArticleHomeDTO,
 		for i := range tagIDList {
 			tagID, err := strconv.Atoi(tagIDList[i])
 			if err != nil {
-				return nil, err // 错误处理：无法将标签 ID 转换为整数
+				return nil, fmt.Errorf("failed to convert tag ID to integer: %v", err)
 			}
 			tags[i] = dto.TagDTO{
 				ID:      tagID,
@@ -174,7 +178,7 @@ func (dao *articleDao) ListArticles(offset int, size int) ([]dto.ArticleHomeDTO,
 	for _, article := range articleMap {
 		articles = append(articles, *article)
 	}
-
+	log.Printf("Articles retrieved: %+v", articles)
 	return articles, nil
 }
 
@@ -241,7 +245,17 @@ func (dao *articleDao) GetArticleById(ctx context.Context, articleId int) (dto.A
 // ListArticleBacks 查询后台文章
 func (dao *articleDao) ListArticleBacks(ctx context.Context, current, size int, condition vo.ConditionVO) ([]dto.ArticleBackDTO, error) {
 	var articles []dto.ArticleBackDTO
+
+	// 确保 current 和 size 是合理的正整数值
+	if current < 1 {
+		current = 1
+	}
+	if size < 1 {
+		size = 10 // 设置一个默认分页大小
+	}
 	offset := (current - 1) * size
+
+	// 初始化查询条件
 	query := `
 		SELECT
 			a.id,
@@ -267,25 +281,36 @@ func (dao *articleDao) ListArticleBacks(ctx context.Context, current, size int, 
 				create_time,
 				category_id
 			FROM tb_article
-			WHERE
-				is_delete = ?
-				<if test="condition.keywords != null">
-					AND article_title LIKE ?
-				</if>
-				<if test="condition.status != null">
-					AND status = ?
-				</if>
-				<if test="condition.categoryId != null">
-					AND category_id = ?
-				</if>
-				<if test="condition.type != null">
-					AND type = ?
-				</if>
-				<if test="condition.tagId != null">
-					AND id IN (
-						SELECT article_id FROM tb_article_tag WHERE tag_id = ?
-					)
-				</if>
+			WHERE is_delete = ?`
+
+	// 动态构建查询条件
+	params := []interface{}{condition.IsDelete}
+
+	if condition.Keywords != nil {
+		query += " AND article_title LIKE ?"
+		params = append(params, fmt.Sprintf("%%%s%%", *condition.Keywords))
+	}
+	if condition.Status != nil {
+		query += " AND status = ?"
+		params = append(params, *condition.Status)
+	}
+	if condition.CategoryID != nil {
+		query += " AND category_id = ?"
+		params = append(params, *condition.CategoryID)
+	}
+	if condition.Type != nil {
+		query += " AND type = ?"
+		params = append(params, *condition.Type)
+	}
+	if condition.TagID != nil {
+		query += ` AND id IN (
+			SELECT article_id FROM tb_article_tag WHERE tag_id = ?
+		)`
+		params = append(params, *condition.TagID)
+	}
+
+	// 添加排序和分页
+	query += `
 			ORDER BY
 				is_top DESC, id DESC
 			LIMIT ?, ?
@@ -296,30 +321,32 @@ func (dao *articleDao) ListArticleBacks(ctx context.Context, current, size int, 
 		ORDER BY
 			is_top DESC, a.id DESC`
 
-	// Build query parameters
-	params := []interface{}{condition.IsDelete}
-	if condition.Keywords != nil {
-		params = append(params, fmt.Sprintf("%%%s%%", *condition.Keywords))
-	}
-	if condition.Status != nil {
-		params = append(params, *condition.Status)
-	}
-	if condition.CategoryID != nil {
-		params = append(params, *condition.CategoryID)
-	}
-	if condition.Type != nil {
-		params = append(params, *condition.Type)
-	}
-	if condition.TagID != nil {
-		params = append(params, *condition.TagID)
-	}
+	// 添加分页参数
 	params = append(params, offset, size)
 
+	// 打印生成的 SQL 语句和参数用于调试
+	fmt.Println("Generated SQL Query: ", query)
+	fmt.Println("Query Parameters: ", params)
+
+	// 执行查询
 	err := dao.db.Raw(query, params...).Scan(&articles).Error
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving back office articles: %w", err)
+	}
+
+	return articles, nil
+}
+func (dao *articleDao) GetTagsByArticleID(ctx context.Context, articleID int) ([]dto.TagDTO, error) {
+	var tags []dto.TagDTO
+	err := dao.db.Table("tb_tag").
+		Select("tb_tag.id, tb_tag.tag_name").
+		Joins("join tb_article_tag on tb_tag.id = tb_article_tag.tag_id").
+		Where("tb_article_tag.article_id = ?", articleID).
+		Scan(&tags).Error
 	if err != nil {
 		return nil, err
 	}
-	return articles, nil
+	return tags, nil
 }
 
 // CountArticleBacks 查询后台文章总量
@@ -553,12 +580,35 @@ func (dao *articleDao) ListArticlesByCondition(ctx context.Context, current int,
 	return articles, nil
 }
 
-// SaveOrUpdate 保存或更新文章
-func (dao *articleDao) SaveOrUpdate(ctx context.Context, article *model.Article) error {
-	if article.ID == 0 {
-		return dao.db.WithContext(ctx).Create(article).Error
+// SaveArticle 保存文章
+func (dao *articleDao) SaveArticle(ctx context.Context, article *model.Article) error {
+	// 设置创建时间
+	article.CreateTime = time.Now()
+	return dao.db.WithContext(ctx).Create(article).Error
+}
+
+// UpdateArticle 更新文章
+func (dao *articleDao) UpdateArticle(ctx context.Context, article *model.Article) error {
+	// 如果 isDelete 没有传递，则保留数据库中的原始值
+	if article.IsDelete == nil {
+		// 从数据库中获取当前文章的 is_delete 值
+		var existingArticle model.Article
+		err := dao.db.WithContext(ctx).Select("is_delete").Where("id = ?", article.ID).First(&existingArticle).Error
+		if err != nil {
+			return err
+		}
+		article.IsDelete = existingArticle.IsDelete
 	}
-	return dao.db.WithContext(ctx).Save(article).Error
+
+	// 设置更新时间
+	now := time.Now()
+	article.UpdateTime = &now
+
+	// 更新文章内容，不覆盖 create_time 等其他字段
+	return dao.db.WithContext(ctx).Model(article).
+		Select("article_title", "article_content", "article_cover", "category_id", "type", "status", "is_top", "is_delete", "update_time").
+		Where("id = ?", article.ID).
+		Updates(article).Error
 }
 
 // 更新文章根据ID

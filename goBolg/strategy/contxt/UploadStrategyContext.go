@@ -16,6 +16,16 @@ type UploadStrategyContext struct {
 }
 
 func NewUploadStrategyContext(config *config.AppConfig) (*UploadStrategyContext, error) {
+	log.Printf("Loaded Upload Config: %+v", config.Upload)
+	if config == nil {
+		log.Fatalf("AppConfig is nil")
+	}
+	if config.Upload == nil {
+		log.Fatalf("UploadConfig is nil")
+	}
+	if config.Upload.Oss.Endpoint == "" || config.Upload.Oss.AccessKeyId == "" || config.Upload.Oss.AccessKeySecret == "" || config.Upload.Oss.BucketName == "" {
+		log.Fatalf("OSS configuration is incomplete")
+	}
 	ossStrategy, err := strategyImpl.Aliyun_Oss_Init(config.Upload.Oss.Endpoint, config.Upload.Oss.AccessKeyId, config.Upload.Oss.AccessKeySecret, config.Upload.Oss.BucketName)
 	if err != nil {
 		log.Printf("Error initializing OSS strategy: %v", err)
@@ -32,6 +42,30 @@ func NewUploadStrategyContext(config *config.AppConfig) (*UploadStrategyContext,
 }
 
 func (c *UploadStrategyContext) ExecuteUploadStrategy(fileHeader *multipart.FileHeader, pathEnum enums.FilePathEnum) (string, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in ExecuteUploadStrategy: %v", r)
+		}
+	}()
+
+	log.Printf("ExecuteUploadStrategy: Starting upload...")
+
+	if c == nil {
+		log.Fatalf("UploadStrategyContext is nil!")
+		return "", fmt.Errorf("upload strategy context is not initialized")
+	}
+
+	if c.Config == nil {
+		log.Fatalf("UploadStrategyContext: c.Config is nil!")
+		return "", fmt.Errorf("upload strategy configuration is not initialized")
+	}
+
+	if c.Config.Upload == nil {
+		log.Fatalf("UploadStrategyContext: c.Config.Upload is nil!")
+		return "", fmt.Errorf("upload configuration is not initialized")
+	}
+
+	log.Printf("Executing upload strategy for mode: %s", c.Config.Upload.Mode)
 	strategy, ok := c.StrategyMap[c.Config.Upload.Mode]
 	if !ok {
 		err := fmt.Errorf("unsupported upload mode: %s", c.Config.Upload.Mode)

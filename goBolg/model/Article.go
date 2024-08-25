@@ -15,7 +15,7 @@ type Article struct {
 	Type           *int       `gorm:"column:type"`
 	OriginalURL    *string    `gorm:"column:original_url"`
 	IsTop          *int       `gorm:"column:is_top"`
-	IsDelete       *int       `gorm:"column:is_delete"`
+	IsDelete       *int       `gorm:"column:is_delete;default:0"`
 	Status         *int       `gorm:"column:status"`
 	CreateTime     time.Time  `gorm:"column:create_time;autoCreateTime"`
 	UpdateTime     *time.Time `gorm:"column:update_time"`

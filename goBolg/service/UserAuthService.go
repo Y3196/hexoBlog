@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"goBolg/dto"
 	"goBolg/vo"
 )
 
@@ -12,4 +13,6 @@ type UserAuthService interface {
 	Register(ctx context.Context, user vo.UserVO) error
 
 	UpdatePassword(ctx context.Context, user *vo.UserVO) error
+
+	ListUserAreas(ctx context.Context, conditionVO vo.ConditionVO) ([]dto.UserAreaDTO, error)
 }
